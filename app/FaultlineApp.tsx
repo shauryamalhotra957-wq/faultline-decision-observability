@@ -4,8 +4,10 @@ import {
   type CSSProperties,
   type FormEvent,
   type MouseEvent,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -45,13 +47,19 @@ const navItems = [
   ["ledger", "04", "Decision ledger"],
 ] as const;
 
+type SectionId = (typeof navItems)[number][0];
+
 function formatMoney(value: number) {
   const sign = value < 0 ? "−" : "+";
   return `${sign}$${Math.abs(value).toFixed(1)}M`;
 }
 
 function scrollToSection(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.getElementById(id)?.scrollIntoView({
+    behavior: reduceMotion ? "auto" : "smooth",
+    block: "start",
+  });
 }
 
 export default function FaultlineApp() {
@@ -71,6 +79,19 @@ export default function FaultlineApp() {
   const [toast, setToast] = useState("");
   const [savedDecisions, setSavedDecisions] = useState<PersistedDecision[]>([]);
   const [apiState, setApiState] = useState<"checking" | "connected" | "local">("checking");
+  const [activeSection, setActiveSection] = useState<SectionId>("radar");
+  const modalRef = useRef<HTMLElement>(null);
+  const modalTriggerRef = useRef<HTMLElement | null>(null);
+  const openDecisionModal = useCallback(() => {
+    modalTriggerRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setModalOpen(true);
+  }, []);
+  const dismissDecisionModal = useCallback(() => {
+    setModalOpen(false);
+    window.requestAnimationFrame(() => modalTriggerRef.current?.focus());
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -95,6 +116,54 @@ export default function FaultlineApp() {
     const timeout = window.setTimeout(() => setToast(""), 3200);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    const sections = navItems
+      .map(([id]) => document.getElementById(id))
+      .filter((section): section is HTMLElement => Boolean(section));
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+        if (visible && navItems.some(([id]) => id === visible.target.id)) {
+          setActiveSection(visible.target.id as SectionId);
+        }
+      },
+      { rootMargin: "-18% 0px -62% 0px", threshold: [0.05, 0.2, 0.5] },
+    );
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        dismissDecisionModal();
+        return;
+      }
+      if (event.key !== "Tab" || !modalRef.current) return;
+      const focusable = Array.from(
+        modalRef.current.querySelectorAll<HTMLElement>(
+          'button, input, textarea, select, a[href], [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("disabled"));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [dismissDecisionModal, modalOpen]);
 
   const strongestFault = decisionSignals[0];
   const evidenceCoverage = useMemo(
@@ -189,7 +258,7 @@ export default function FaultlineApp() {
       }
       setSavedDecisions((current) => [result.decision!, ...current]);
       setApiState("connected");
-      setModalOpen(false);
+      dismissDecisionModal();
       setToast(`Decision ${result.decision.id} sealed to the ledger`);
     } catch {
       setToast("Persistent ledger is unavailable in this runtime");
@@ -197,7 +266,7 @@ export default function FaultlineApp() {
   }
 
   function closeModal(event: MouseEvent<HTMLDivElement>) {
-    if (event.currentTarget === event.target) setModalOpen(false);
+    if (event.currentTarget === event.target) dismissDecisionModal();
   }
 
   return (
@@ -216,7 +285,7 @@ export default function FaultlineApp() {
             {apiState === "connected" ? "D1 LIVE" : apiState === "checking" ? "SYNCING" : "DEMO MODE"}
           </span>
         </div>
-        <button className="primary-button compact" onClick={() => setModalOpen(true)}>
+        <button className="primary-button compact" onClick={openDecisionModal}>
           <span>COMMIT DECISION</span><b>↗</b>
         </button>
       </header>
@@ -224,7 +293,16 @@ export default function FaultlineApp() {
       <aside className="side-rail" aria-label="Primary navigation">
         <nav>
           {navItems.map(([id, number, label]) => (
-            <button key={id} onClick={() => scrollToSection(id)}>
+            <button
+              key={id}
+              className={activeSection === id ? "active" : ""}
+              onClick={() => {
+                setActiveSection(id);
+                scrollToSection(id);
+              }}
+              aria-current={activeSection === id ? "location" : undefined}
+              aria-controls={id}
+            >
               <span>{number}</span>{label}
             </button>
           ))}
@@ -447,7 +525,7 @@ export default function FaultlineApp() {
         <section className="workspace-section ledger-section" id="ledger">
           <div className="section-heading">
             <div><span>04 / DECISION LEDGER</span><h2>Memory with consequences.</h2></div>
-            <button className="outline-button" onClick={() => setModalOpen(true)}>+ NEW DECISION</button>
+            <button className="outline-button" onClick={openDecisionModal}>+ NEW DECISION</button>
           </div>
           <div className="ledger-table" role="table" aria-label="Decision ledger">
             <div className="ledger-head" role="row"><span>ID / SEALED</span><span>DECISION</span><span>OWNER</span><span>CONFIDENCE</span><span>STATE</span><span>INTEGRITY</span></div>
@@ -477,7 +555,7 @@ export default function FaultlineApp() {
           </div>
           <div className="ledger-footer">
             <div><span>WHY THIS EXISTS</span><p>Most companies remember what they chose. FAULTLINE preserves what they believed, what evidence existed, and whether their confidence deserved to survive contact with reality.</p></div>
-            <button className="primary-button" onClick={() => setModalOpen(true)}>COMMIT A DECISION <b>↗</b></button>
+            <button className="primary-button" onClick={openDecisionModal}>COMMIT A DECISION <b>↗</b></button>
           </div>
         </section>
 
@@ -491,8 +569,8 @@ export default function FaultlineApp() {
 
       {modalOpen && (
         <div className="modal-backdrop" onMouseDown={closeModal} role="presentation">
-          <section className="decision-modal" role="dialog" aria-modal="true" aria-labelledby="decision-modal-title">
-            <div className="modal-header"><div><span>NEW DECISION COMMIT</span><h2 id="decision-modal-title">Seal the belief state.</h2></div><button onClick={() => setModalOpen(false)} aria-label="Close dialog">×</button></div>
+          <section ref={modalRef} className="decision-modal" role="dialog" aria-modal="true" aria-labelledby="decision-modal-title">
+            <div className="modal-header"><div><span>NEW DECISION COMMIT</span><h2 id="decision-modal-title">Seal the belief state.</h2></div><button onClick={dismissDecisionModal} aria-label="Close dialog">×</button></div>
             <form onSubmit={commitDecision}>
               <label><span>DECISION</span><input name="title" required minLength={4} maxLength={160} placeholder="What are you committing to?" autoFocus /></label>
               <label><span>CONTEXT / ASSUMPTIONS</span><textarea name="context" maxLength={2000} placeholder="State what must be true for this decision to work…" rows={5} /></label>

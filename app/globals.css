@@ -257,9 +257,23 @@ button:disabled {
   transition: color 160ms ease, background 160ms ease;
 }
 
-.side-rail nav button:hover {
+.side-rail nav button:hover,
+.side-rail nav button.active {
   color: var(--paper);
   background: rgba(216, 255, 62, 0.04);
+}
+
+.side-rail nav button.active::before {
+  content: "";
+  position: absolute;
+  inset: 10px auto 10px 0;
+  width: 2px;
+  background: var(--acid);
+  box-shadow: 0 0 14px rgba(216, 255, 62, 0.5);
+}
+
+.side-rail nav button.active span {
+  opacity: 1;
 }
 
 .side-rail nav button span {
@@ -1732,6 +1746,7 @@ button.signal-node {
   }
   .side-rail nav { height: 100%; flex-direction: row; }
   .side-rail nav button { flex: 1; justify-content: center; padding: 8px 3px; border-bottom: 0; border-right: 1px solid var(--line); font-size: 0; }
+  .side-rail nav button.active::before { inset: 0 10px auto; width: auto; height: 2px; }
   .side-rail nav button span { font-size: 9px; }
   .rail-footer { display: none; }
   .main-canvas { margin-left: 0; padding-top: 58px; padding-bottom: 58px; }
