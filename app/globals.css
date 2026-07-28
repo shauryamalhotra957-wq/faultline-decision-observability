@@ -262,6 +262,20 @@ button:disabled {
   background: rgba(216, 255, 62, 0.04);
 }
 
+.side-rail nav button.active {
+  color: var(--paper);
+  background: linear-gradient(90deg, rgba(216, 255, 62, 0.12), rgba(216, 255, 62, 0.02));
+}
+
+.side-rail nav button.active::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--acid);
+  box-shadow: 0 0 14px rgba(216, 255, 62, 0.6);
+}
+
 .side-rail nav button span {
   color: var(--acid);
   opacity: 0.72;
@@ -1733,6 +1747,8 @@ button.signal-node {
   .side-rail nav { height: 100%; flex-direction: row; }
   .side-rail nav button { flex: 1; justify-content: center; padding: 8px 3px; border-bottom: 0; border-right: 1px solid var(--line); font-size: 0; }
   .side-rail nav button span { font-size: 9px; }
+  .side-rail nav button.active { background: linear-gradient(0deg, rgba(216, 255, 62, 0.12), rgba(216, 255, 62, 0.02)); }
+  .side-rail nav button.active::after { inset: auto 0 0; width: auto; height: 2px; }
   .rail-footer { display: none; }
   .main-canvas { margin-left: 0; padding-top: 58px; padding-bottom: 58px; }
   .hero-grid { min-height: auto; padding: 46px 18px 30px; gap: 38px; }

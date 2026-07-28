@@ -6,6 +6,7 @@ import {
   type MouseEvent,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -71,6 +72,9 @@ export default function FaultlineApp() {
   const [toast, setToast] = useState("");
   const [savedDecisions, setSavedDecisions] = useState<PersistedDecision[]>([]);
   const [apiState, setApiState] = useState<"checking" | "connected" | "local">("checking");
+  const [activeSection, setActiveSection] = useState<(typeof navItems)[number][0]>("radar");
+  const modalRef = useRef<HTMLElement>(null);
+  const modalTriggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -95,6 +99,58 @@ export default function FaultlineApp() {
     const timeout = window.setTimeout(() => setToast(""), 3200);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const current = entries.find((entry) => entry.isIntersecting);
+        if (current) setActiveSection(current.target.id as (typeof navItems)[number][0]);
+      },
+      { rootMargin: "-18% 0px -68% 0px" },
+    );
+    navItems.forEach(([id]) => {
+      const section = document.getElementById(id);
+      if (section) observer.observe(section);
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setModalOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !modalRef.current) return;
+      const focusable = Array.from(
+        modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled])',
+        ),
+      );
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && (document.activeElement === first || !modalRef.current.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      modalTriggerRef.current?.focus();
+    };
+  }, [modalOpen]);
 
   const strongestFault = decisionSignals[0];
   const evidenceCoverage = useMemo(
@@ -200,6 +256,11 @@ export default function FaultlineApp() {
     if (event.currentTarget === event.target) setModalOpen(false);
   }
 
+  function openModal() {
+    modalTriggerRef.current = document.activeElement as HTMLElement | null;
+    setModalOpen(true);
+  }
+
   return (
     <main className="app-shell">
       <header className="command-bar">
@@ -216,7 +277,7 @@ export default function FaultlineApp() {
             {apiState === "connected" ? "D1 LIVE" : apiState === "checking" ? "SYNCING" : "DEMO MODE"}
           </span>
         </div>
-        <button className="primary-button compact" onClick={() => setModalOpen(true)}>
+        <button className="primary-button compact" onClick={openModal}>
           <span>COMMIT DECISION</span><b>↗</b>
         </button>
       </header>
@@ -224,7 +285,15 @@ export default function FaultlineApp() {
       <aside className="side-rail" aria-label="Primary navigation">
         <nav>
           {navItems.map(([id, number, label]) => (
-            <button key={id} onClick={() => scrollToSection(id)}>
+            <button
+              key={id}
+              className={activeSection === id ? "active" : ""}
+              aria-current={activeSection === id ? "location" : undefined}
+              onClick={() => {
+                setActiveSection(id);
+                scrollToSection(id);
+              }}
+            >
               <span>{number}</span>{label}
             </button>
           ))}
@@ -447,7 +516,7 @@ export default function FaultlineApp() {
         <section className="workspace-section ledger-section" id="ledger">
           <div className="section-heading">
             <div><span>04 / DECISION LEDGER</span><h2>Memory with consequences.</h2></div>
-            <button className="outline-button" onClick={() => setModalOpen(true)}>+ NEW DECISION</button>
+            <button className="outline-button" onClick={openModal}>+ NEW DECISION</button>
           </div>
           <div className="ledger-table" role="table" aria-label="Decision ledger">
             <div className="ledger-head" role="row"><span>ID / SEALED</span><span>DECISION</span><span>OWNER</span><span>CONFIDENCE</span><span>STATE</span><span>INTEGRITY</span></div>
@@ -477,7 +546,7 @@ export default function FaultlineApp() {
           </div>
           <div className="ledger-footer">
             <div><span>WHY THIS EXISTS</span><p>Most companies remember what they chose. FAULTLINE preserves what they believed, what evidence existed, and whether their confidence deserved to survive contact with reality.</p></div>
-            <button className="primary-button" onClick={() => setModalOpen(true)}>COMMIT A DECISION <b>↗</b></button>
+            <button className="primary-button" onClick={openModal}>COMMIT A DECISION <b>↗</b></button>
           </div>
         </section>
 
@@ -491,7 +560,7 @@ export default function FaultlineApp() {
 
       {modalOpen && (
         <div className="modal-backdrop" onMouseDown={closeModal} role="presentation">
-          <section className="decision-modal" role="dialog" aria-modal="true" aria-labelledby="decision-modal-title">
+          <section ref={modalRef} className="decision-modal" role="dialog" aria-modal="true" aria-labelledby="decision-modal-title">
             <div className="modal-header"><div><span>NEW DECISION COMMIT</span><h2 id="decision-modal-title">Seal the belief state.</h2></div><button onClick={() => setModalOpen(false)} aria-label="Close dialog">×</button></div>
             <form onSubmit={commitDecision}>
               <label><span>DECISION</span><input name="title" required minLength={4} maxLength={160} placeholder="What are you committing to?" autoFocus /></label>

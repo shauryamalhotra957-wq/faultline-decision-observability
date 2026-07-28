@@ -27,6 +27,7 @@ test("server-renders the FAULTLINE control room", async () => {
   assert.match(html, /EVIDENCE MESH/);
   assert.match(html, /DECISION LEDGER/);
   assert.match(html, /COMMIT DECISION/);
+  assert.match(html, /aria-current="location"/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
 
