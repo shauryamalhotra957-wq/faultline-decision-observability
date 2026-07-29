@@ -10,7 +10,6 @@ CREATE TABLE `decisions` (
 	`decision_hash` text NOT NULL,
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
---> statement-breakpoint
 CREATE TABLE `evidence` (
 	`id` text PRIMARY KEY NOT NULL,
 	`decision_id` text,
@@ -23,7 +22,6 @@ CREATE TABLE `evidence` (
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	FOREIGN KEY (`decision_id`) REFERENCES `decisions`(`id`) ON UPDATE no action ON DELETE cascade
 );
---> statement-breakpoint
 CREATE TABLE `outcomes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`decision_id` text NOT NULL,
@@ -33,7 +31,6 @@ CREATE TABLE `outcomes` (
 	`recorded_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	FOREIGN KEY (`decision_id`) REFERENCES `decisions`(`id`) ON UPDATE no action ON DELETE cascade
 );
---> statement-breakpoint
 CREATE TABLE `simulations` (
 	`id` text PRIMARY KEY NOT NULL,
 	`decision_id` text,
