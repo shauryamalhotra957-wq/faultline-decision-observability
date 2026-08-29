@@ -2,11 +2,11 @@ import { ensureDatabase, getD1 } from "../../../db/runtime";
 import { simulateDecision } from "../../../lib/engine";
 import type { SimulationInput } from "../../../lib/types";
 
-function isFiniteNumber(value: unknown): value is number {
+export function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function validInput(value: unknown): value is SimulationInput {
+export function validInput(value: unknown): value is SimulationInput {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<SimulationInput>;
   return [candidate.adoption, candidate.priceDelta, candidate.capacity, candidate.retention].every(
@@ -14,21 +14,34 @@ function validInput(value: unknown): value is SimulationInput {
   );
 }
 
+export function normalizeDecisionId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim();
+  return normalized.length > 0 && normalized.length <= 80 ? normalized : undefined;
+}
+
+export function normalizeSeed(value: unknown): number {
+  return typeof value === "number" && Number.isSafeInteger(value)
+    ? value
+    : Date.now() % 2_147_483_647;
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
-      decisionId?: string;
+      decisionId?: unknown;
       input?: unknown;
-      seed?: number;
+      seed?: unknown;
     };
     if (!validInput(body.input)) {
       return Response.json({ error: "A complete numeric simulation input is required." }, { status: 400 });
     }
 
-    const seed = Number.isInteger(body.seed) ? Number(body.seed) : Date.now() % 2_147_483_647;
+    const seed = normalizeSeed(body.seed);
     const result = simulateDecision(body.input, seed);
+    const decisionId = normalizeDecisionId(body.decisionId);
 
-    if (body.decisionId) {
+    if (decisionId) {
       await ensureDatabase();
       const database = getD1();
       await database
@@ -39,7 +52,7 @@ export async function POST(request: Request) {
         )
         .bind(
           crypto.randomUUID(),
-          body.decisionId.slice(0, 80),
+          decisionId,
           seed,
           JSON.stringify(body.input),
           JSON.stringify(result),
@@ -51,8 +64,7 @@ export async function POST(request: Request) {
     }
 
     return Response.json({ result, seed });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Simulation failed.";
-    return Response.json({ error: message }, { status: 500 });
+  } catch {
+    return Response.json({ error: "Simulation failed." }, { status: 500 });
   }
 }
