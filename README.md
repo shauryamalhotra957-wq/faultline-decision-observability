@@ -148,3 +148,7 @@ Research prototype with production-quality foundations. The included corpus is d
 ## License
 
 [MIT](LICENSE)
+
+## API safety notes
+
+The simulation endpoint accepts only finite numeric inputs, safe-integer seeds, and bounded decision identifiers. Invalid requests return `400`; unexpected runtime failures return a stable generic `500` response without exposing database or runtime details. Regression coverage lives in `tests/route-validation.test.ts`.
