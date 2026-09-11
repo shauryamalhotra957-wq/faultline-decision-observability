@@ -11,6 +11,7 @@
     "start": "node ./node_modules/vinext/dist/cli.js start",
     "test": "node ./node_modules/vinext/dist/cli.js build && node --experimental-strip-types --import ./tests/register-loader.mjs --test tests/*.test.*",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "check": "npm run lint && npm test",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
