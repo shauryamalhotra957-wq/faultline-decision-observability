@@ -1,5 +1,8 @@
 # FAULTLINE
 
+[![CI](https://github.com/shauryamalhotra957-wq/faultline-decision-observability/actions/workflows/ci.yml/badge.svg)](https://github.com/shauryamalhotra957-wq/faultline-decision-observability/actions) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+
 > Decision observability for teams operating under uncertainty.
 
 ![FAULTLINE social preview](public/og.png)
